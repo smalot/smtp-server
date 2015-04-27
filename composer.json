@@ -1,0 +1,12 @@
+{
+    "name": "sam-it/react-smtp",
+    "require": {
+        "react/react": "0.4.*"
+    },
+    "authors": [
+        {
+            "name": "Sam",
+            "email": "sam@mousa.nl"
+        }
+    ]
+}
