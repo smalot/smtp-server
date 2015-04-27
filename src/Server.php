@@ -1,6 +1,6 @@
 <?php
 
-namespace SamIT\Smtp;
+namespace SamIT\React\Smtp;
 
 use Evenement\EventEmitter;
 use React\EventLoop\LoopInterface;

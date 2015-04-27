@@ -3,10 +3,18 @@
     "require": {
         "react/react": "0.4.*"
     },
+    "description" : "SMTP Server based on ReactPHP",
+    "license" : "MIT",
     "authors": [
         {
             "name": "Sam",
             "email": "sam@mousa.nl"
         }
-    ]
+    ],
+    "autoload": {
+        "psr-4" : {
+            "SamIT\\React\\Smtp\\" : ["src/"]
+
+        }
+    }
 }

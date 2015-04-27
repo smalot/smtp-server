@@ -1,12 +1,5 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: sam
- * Date: 4/27/15
- * Time: 10:15 AM
- */
-
-namespace SamIT\Smtp;
+namespace SamIT\React\Smtp;
 
 
 use React\EventLoop\LoopInterface;
