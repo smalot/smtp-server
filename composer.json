@@ -1,7 +1,7 @@
 {
     "name": "sam-it/react-smtp",
     "require": {
-        "react/react": "0.4.*"
+        "react/react": "*"
     },
     "description" : "SMTP Server based on ReactPHP",
     "license" : "MIT",

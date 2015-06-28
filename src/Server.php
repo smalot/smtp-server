@@ -7,7 +7,6 @@ use React\EventLoop\LoopInterface;
 use React\Http\ServerInterface;
 use React\Socket\ServerInterface as SocketServerInterface;
 use React\Socket\ConnectionInterface;
-use SamIT\Smtp\Connection;
 
 /** @event request */
 class Server extends \React\Socket\Server
@@ -23,8 +22,9 @@ class Server extends \React\Socket\Server
     public function createConnection($socket)
     {
         $conn = new Connection($socket, $this->loop);
-        $conn->on('message', function($from, $recipients, $body) {
-            $this->emit('message', compact('from', 'recipients', 'body'));
+        // We let messages "bubble up" from the connection to the server.
+        $conn->on('message', function() {
+            $this->emit('message', func_get_args());
         });
         return $conn;
     }
