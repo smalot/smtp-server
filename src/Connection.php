@@ -7,34 +7,43 @@ use React\Socket\ConnectionInterface;
 use React\Stream\WritableStream;
 
 class Connection extends \React\Socket\Connection{
+    const STATUS_NEW = 0;
+    const STATUS_INIT = 1;
+    const STATUS_FROM = 2;
+    const STATUS_TO = 3;
+    const STATUS_DATA = 4;
 
     protected $states = [
-        [
+        STATUS_NEW => [
             'Helo' => 'HELO',
             'Ehlo' => 'EHLO',
             'Quit' => 'QUIT'
 
-        ], [
+        ],
+        STATUS_INIT => [
             'MailFrom' => 'MAIL FROM',
             'Quit' => 'QUIT',
             'Reset' => 'RSET'
-        ], [
+        ],
+        STATUS_FROM => [
             'RcptTo' => 'RCPT TO',
             'Quit' => 'QUIT',
             'Reset' => 'RSET'
-        ], [
+        ],
+        STATUS_TO => [
             'RcptTo' => 'RCPT TO',
             'Quit' => 'QUIT',
             'Data' => 'DATA',
             'Reset' => 'RSET'
-        ], [
+        ],
+        STATUS_DATA => [
             'Line' => '' // This will match any line.
         ]
 
 
     ];
 
-    protected $state = 0;
+    protected $state = self::STATUS_NEW;
 
     protected $banner = 'Welcome to ReactPHP Smtp';
 
@@ -66,7 +75,7 @@ class Connection extends \React\Socket\Connection{
         $loop->addTimer(2, function() use ($disconnect) {
             $this->sendReply(220, $this->banner);
             $this->removeListener('data', $disconnect);
-            $this->reset(0);
+            $this->reset(self::STATUS_NEW);
             $this->on('line', [$this, 'handleCommand']);
         });
 
@@ -84,7 +93,7 @@ class Connection extends \React\Socket\Connection{
         // See issues #192, #209, and #240
         $data = stream_socket_recvfrom($stream, $this->bufferSize);;
 
-        $limit = $this->state == 4 ? 1000 : 512;
+        $limit = $this->state == self::STATUS_DATA ? 1000 : 512;
         if ('' !== $data && false !== $data) {
             $this->lineBuffer .= $data;
             if (strlen($this->lineBuffer) > $limit) {
@@ -164,13 +173,13 @@ class Connection extends \React\Socket\Connection{
     }
     protected function handleHeloCommand($domain)
     {
-        $this->state++;
+        $this->state = self::STATUS_INIT;
         $this->sendReply(250, "Hello {$this->getRemoteAddress()}");
     }
 
     protected function handleEhloCommand($domain)
     {
-        $this->state++;
+        $this->state = self::STATUS_INIT;
         $this->sendReply(250, "Hello {$this->getRemoteAddress()}");
     }
 
@@ -179,7 +188,7 @@ class Connection extends \React\Socket\Connection{
 
         // Parse the email.
         if (preg_match('/:\s*\<(?<email>.*)\>( .*)?/', $arguments, $matches) == 1) {
-            $this->state = 2;
+            $this->state = self::STATUS_FROM;
             $this->from  = $matches['email'];
             $this->sendReply(250, "MAIL OK");
         } else {
@@ -198,7 +207,7 @@ class Connection extends \React\Socket\Connection{
         // Parse the recipient.
         if (preg_match('/:\s?\<(?<email>.*)\>( .*)?/', $arguments, $matches) == 1) {
             // Always set to 3, since this command might occur multiple times.
-            $this->state = 3;
+            $this->state = self::STATUS_TO;
             $this->recipients[] = $matches['email'];
             $this->sendReply(250, "Accepted");
         } else {
@@ -208,7 +217,7 @@ class Connection extends \React\Socket\Connection{
 
     public function handleDataCommand($arguments)
     {
-        $this->state++;
+        $this->state = self::STATUS_DATA;
         $this->sendReply(354, "Enter message, end with CRLF . CRLF");
     }
 
@@ -234,7 +243,13 @@ class Connection extends \React\Socket\Connection{
 
     }
 
-    protected function reset($state = 1) {
+    /**
+     * Reset the smtp session.
+     * By default goes to the initialized state (ie no new EHLO or HELO is required / possible.)
+     *
+     * @param int $state The state to go to.
+     */
+    protected function reset($state = self::STATUS_INIT) {
         $this->state = $state;
         $this->from = null;
         $this->recipients = [];
