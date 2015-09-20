@@ -5,6 +5,10 @@ include __DIR__ . '/vendor/autoload.php';
 $loop = React\EventLoop\Factory::create();
 $smtp = new SamIT\React\Smtp\Server($loop);
 
+
+$request = new \SamIT\React\Smtp\Request();
+
+
 $counter = 0;
 $smtp->on('message', function($from, array $recipients, \SamIT\React\Smtp\Message $message) use (&$counter) {
     echo "Mail ($counter) from $from\n";
