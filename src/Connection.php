@@ -2,7 +2,9 @@
 namespace SamIT\React\Smtp;
 
 
+use React\Dns\Query\TimeoutException;
 use React\EventLoop\LoopInterface;
+use React\EventLoop\Timer\TimerInterface;
 use React\Socket\ConnectionInterface;
 use React\Stream\WritableStream;
 
@@ -12,33 +14,41 @@ class Connection extends \React\Socket\Connection{
     const STATUS_FROM = 2;
     const STATUS_TO = 3;
     const STATUS_DATA = 4;
+    /**
+     * This status is used when all mail data has been received and the system is deciding whether to accept or reject.
+     */
+    const STATUS_PROCESSING = 5;
 
     protected $states = [
-        STATUS_NEW => [
+        self::STATUS_NEW => [
             'Helo' => 'HELO',
             'Ehlo' => 'EHLO',
             'Quit' => 'QUIT'
 
         ],
-        STATUS_INIT => [
+        self::STATUS_INIT => [
             'MailFrom' => 'MAIL FROM',
             'Quit' => 'QUIT',
             'Reset' => 'RSET'
         ],
-        STATUS_FROM => [
+        self::STATUS_FROM => [
             'RcptTo' => 'RCPT TO',
             'Quit' => 'QUIT',
             'Reset' => 'RSET'
         ],
-        STATUS_TO => [
+        self::STATUS_TO => [
             'RcptTo' => 'RCPT TO',
             'Quit' => 'QUIT',
             'Data' => 'DATA',
             'Reset' => 'RSET'
         ],
-        STATUS_DATA => [
+        self::STATUS_DATA => [
             'Line' => '' // This will match any line.
+        ],
+        self::STATUS_PROCESSING => [
+
         ]
+
 
 
     ];
@@ -46,7 +56,20 @@ class Connection extends \React\Socket\Connection{
     protected $state = self::STATUS_NEW;
 
     protected $banner = 'Welcome to ReactPHP Smtp';
-
+    /**
+     * @var bool Accept messages by default
+     */
+    protected $acceptByDefault = true;
+    /**
+     * If there are event listeners, how long will they get to accept or reject a message?
+     * @var int
+     */
+    protected $defaultActionTimeout = 5;
+    /**
+     * The timer for the default action, canceled in [accept] and [reject]
+     * @var TimerInterface
+     */
+    protected $defaultActionTimer;
     /**
      * The current line buffer used by handleData.
      * @var string
@@ -63,23 +86,27 @@ class Connection extends \React\Socket\Connection{
      */
     private $server;
 
+    protected $bannerDelay = 0;
+
     public function __construct($stream, LoopInterface $loop)
     {
         parent::__construct($stream, $loop);
-
+        stream_get_meta_data($stream);
         // We sleep for 3 seconds, if client does not wait for our banner we disconnect.
         $disconnect = function($data, ConnectionInterface $conn) {
             $conn->end("I can break rules too, bye.\n");
         };
         $this->on('data', $disconnect);
-        $loop->addTimer(2, function() use ($disconnect) {
+        $this->reset(self::STATUS_NEW);
+        $this->on('line', [$this, 'handleCommand']);
+        if ($this->bannerDelay > 0) {
+            $loop->addTimer($this->bannerDelay, function () use ($disconnect) {
+                $this->sendReply(220, $this->banner);
+                $this->removeListener('data', $disconnect);
+            });
+        } else {
             $this->sendReply(220, $this->banner);
-            $this->removeListener('data', $disconnect);
-            $this->reset(self::STATUS_NEW);
-            $this->on('line', [$this, 'handleCommand']);
-        });
-
-
+        }
     }
 
     /**
@@ -130,7 +157,7 @@ class Connection extends \React\Socket\Connection{
         }
     }
 
-    public function handleCommand($line)
+    protected function handleCommand($line)
     {
         if ($line !=='') {
             $command = $this->parseCommand($line);
@@ -160,7 +187,6 @@ class Connection extends \React\Socket\Connection{
         if ($close) {
             $this->end("$code $message\r\n");
         } else {
-//            echo "$code $message\r\n";
             $this->write("$code $message\r\n");
         }
 
@@ -215,22 +241,36 @@ class Connection extends \React\Socket\Connection{
         }
     }
 
-    public function handleDataCommand($arguments)
+    protected function handleDataCommand($arguments)
     {
         $this->state = self::STATUS_DATA;
         $this->sendReply(354, "Enter message, end with CRLF . CRLF");
     }
 
-    public function handleLineCommand($line)
+    protected function handleLineCommand($line)
     {
         if ($line === '.') {
-            $this->sendReply(250, 'OK');
+            $this->state = self::STATUS_PROCESSING;
+            /**
+             * Default action, using timer so that callbacks above can be called asynchronously.
+             */
+            $this->defaultActionTimer = $this->loop->addTimer($this->defaultActionTimeout, function() {
+                if ($this->acceptByDefault) {
+                    $this->accept();
+                } else {
+                    $this->reject();
+
+                }
+            });
+
+
+
             $this->emit('message', [
                 'from' => $this->from,
                 'recipients' => $this->recipients,
-                'message' => $this->message
+                'message' => $this->message,
+                'connection' => $this,
             ]);
-            $this->reset();
         } else {
             // Check if this is a header line.
             // For now support limited header names only..
@@ -253,7 +293,27 @@ class Connection extends \React\Socket\Connection{
         $this->state = $state;
         $this->from = null;
         $this->recipients = [];
-        $this->message = new Message();;
+        $this->message = new Message();
+    }
+
+    public function accept($message = "OK") {
+        echo "Accepting\n";
+        if ($this->state != self::STATUS_PROCESSING) {
+            throw new \DomainException("SMTP Connection not in a valid state to accept a message.");
+        }
+        $this->loop->cancelTimer($this->defaultActionTimer);
+        $this->sendReply(250, $message);
+        $this->reset();
+    }
+
+    public function reject($code = 550, $message = "Message not accepted") {
+        echo "Rejecting\n";
+        if ($this->state != self::STATUS_PROCESSING) {
+            throw new \DomainException("SMTP Connection not in a valid state to reject message.");
+        }
+        $this->loop->cancelTimer($this->defaultActionTimer);
+        $this->sendReply($code, $message);
+        $this->reset();
     }
 
 
