@@ -11,6 +11,9 @@ use React\Socket\ConnectionInterface;
 /** @event request */
 class Server extends \React\Socket\Server
 {
+    public $recipientLimit = 100;
+    public $bannerDelay = 0;
+
     private $loop;
     public function __construct(LoopInterface $loop)
     {
@@ -22,6 +25,8 @@ class Server extends \React\Socket\Server
     public function createConnection($socket)
     {
         $conn = new Connection($socket, $this->loop);
+        $conn->recipientLimit = $this->recipientLimit;
+        $conn->bannerDelay = $this->bannerDelay;
         // We let messages "bubble up" from the connection to the server.
         $conn->on('message', function() {
             $this->emit('message', func_get_args());
