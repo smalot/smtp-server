@@ -1,10 +1,9 @@
 {
     "name": "sam-it/react-smtp",
     "require": {
-        "react/react": "^0.4",
-        "react/socket-client" : "^0.5",
-        "psr/http-message": "1.*",
-        "sam-it/proxy": "dev-master"
+        "psr/http-message": "^1",
+        "sam-it/proxy": "^0.4",
+        "guzzlehttp/psr7": "^1.3"
     },
     "description" : "SMTP Server based on ReactPHP",
     "license" : "MIT",
@@ -16,7 +15,7 @@
     ],
     "autoload": {
         "psr-4" : {
-            "SamIT\\React\\Smtp\\" : ["src/"]
+            "SamIT\\React\\Smtp\\" : ["src"]
 
         }
     }

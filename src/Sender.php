@@ -33,7 +33,7 @@ class Sender
         Request $request
     ) {
 
-        $connection->on
+//        $connection->on
 
     }
 
