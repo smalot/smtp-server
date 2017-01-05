@@ -230,7 +230,7 @@ class Connection extends \React\Socket\Connection{
 
     protected function handleRcptToCommand($arguments) {
         // Parse the recipient.
-        if (preg_match('/:\s(?<name>.*?)?\<(?<email>.*)\>( .*)?/', $arguments, $matches) == 1) {
+        if (preg_match('/:\s*(?<name>.*?)?\<(?<email>.*)\>( .*)?/', $arguments, $matches) == 1) {
             // Always set to 3, since this command might occur multiple times.
             $this->state = self::STATUS_TO;
             $this->recipients[$matches['email']] = $matches['name'];
