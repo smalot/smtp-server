@@ -261,7 +261,7 @@ class Connection extends \React\Socket\Connection{
                 }
             });
 
-
+            $this->message->getBody()->seek(0);
 
             $this->emit('message', [
                 'from' => $this->from,
