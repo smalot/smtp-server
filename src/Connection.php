@@ -1,7 +1,6 @@
 <?php
 namespace SamIT\React\Smtp;
 
-
 use React\EventLoop\LoopInterface;
 use React\EventLoop\Timer\TimerInterface;
 use React\Socket\ConnectionInterface;
@@ -266,6 +265,7 @@ class Connection extends \React\Socket\Connection{
 
             case 'LOGIN':
                 $this->authMethod = new LoginMethod();
+                var_dump($this->authMethod);
 
                 $this->sendReply(334, 'VXNlcm5hbWU6');
                 return;
