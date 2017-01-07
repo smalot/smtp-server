@@ -2,29 +2,40 @@
 namespace SamIT\React\Smtp;
 
 
-use React\Dns\Query\TimeoutException;
+use PhpMimeMailParser\Parser;
 use React\EventLoop\LoopInterface;
 use React\EventLoop\Timer\TimerInterface;
 use React\Socket\ConnectionInterface;
-use React\Stream\WritableStream;
+use SamIT\React\Smtp\Auth\LoginMethod;
+use SamIT\React\Smtp\Auth\MethodInterface;
+use SamIT\React\Smtp\Auth\MethodLogin;
+use SamIT\React\Smtp\Auth\MethodPlain;
+use SamIT\React\Smtp\Auth\PlainMethod;
 
 class Connection extends \React\Socket\Connection{
     const STATUS_NEW = 0;
-    const STATUS_INIT = 1;
-    const STATUS_FROM = 2;
-    const STATUS_TO = 3;
-    const STATUS_DATA = 4;
+    const STATUS_AUTH = 1;
+    const STATUS_INIT = 2;
+    const STATUS_FROM = 3;
+    const STATUS_TO = 4;
+    const STATUS_DATA = 5;
+
     /**
      * This status is used when all mail data has been received and the system is deciding whether to accept or reject.
      */
-    const STATUS_PROCESSING = 5;
+    const STATUS_PROCESSING = 6;
 
     protected $states = [
         self::STATUS_NEW => [
             'Helo' => 'HELO',
             'Ehlo' => 'EHLO',
             'Quit' => 'QUIT'
-
+        ],
+        self::STATUS_AUTH => [
+            'Auth' => 'AUTH',
+            'Quit' => 'QUIT',
+            'Reset' => 'RSET',
+            'Login' => '',
         ],
         self::STATUS_INIT => [
             'MailFrom' => 'MAIL FROM',
@@ -48,12 +59,10 @@ class Connection extends \React\Socket\Connection{
         self::STATUS_PROCESSING => [
 
         ]
-
-
-
     ];
 
     protected $state = self::STATUS_NEW;
+    protected $lastCommand = '';
 
     protected $banner = 'Welcome to ReactPHP SMTP Server';
     /**
@@ -64,7 +73,7 @@ class Connection extends \React\Socket\Connection{
      * If there are event listeners, how long will they get to accept or reject a message?
      * @var int
      */
-    protected $defaultActionTimeout = 5;
+    protected $defaultActionTimeout = 0;
     /**
      * The timer for the default action, canceled in [accept] and [reject]
      * @var TimerInterface
@@ -77,6 +86,19 @@ class Connection extends \React\Socket\Connection{
     protected $lineBuffer = '';
     protected $from;
     protected $recipients = [];
+
+    protected $authMethods = [
+      'LOGIN',
+      'PLAIN',
+    ];
+
+    /**
+     * @var MethodInterface
+     */
+    protected $authMethod;
+    protected $login;
+
+    protected $rawContent;
     /**
      * @var Message
      */
@@ -109,7 +131,7 @@ class Connection extends \React\Socket\Connection{
     }
 
     /**
-     * We read until we find an and of line sequence for SMTP.
+     * We read until we find an end of line sequence for SMTP.
      * http://www.jebriggs.com/blog/2010/07/smtp-maximum-line-lengths/
      * @param $stream
      */
@@ -148,31 +170,38 @@ class Connection extends \React\Socket\Connection{
      */
     protected function parseCommand(&$line)
     {
-        foreach ($this->states[$this->state] as $key => $candidate) {
-            if (strncasecmp($candidate, $line, strlen($candidate)) == 0) {
-                $line = substr($line, strlen($candidate));
-                return $key;
+        if ($line) {
+            foreach ($this->states[$this->state] as $key => $candidate) {
+                if (strncasecmp($candidate, $line, strlen($candidate)) == 0) {
+                    $line = substr($line, strlen($candidate));
+                    $this->lastCommand = $key;
+                    return $key;
+                }
             }
         }
+
+        if ($this->lastCommand == 'Line') {
+            return 'Line';
+        }
+
+        return null;
     }
 
     protected function handleCommand($line)
     {
-        if ($line !=='') {
-            $command = $this->parseCommand($line);
-            if ($command == null) {
-                $this->sendReply(500, "Unexpected or unknown command.");
-                $this->sendReply(500, $this->states[$this->state]);
+        $command = $this->parseCommand($line);
 
-            } else {
-                $func = "handle{$command}Command";
-                $this->$func($line);
-            }
+        if ($command == null) {
+            $this->sendReply(500, "Unexpected or unknown command: ".$line);
+            $this->sendReply(500, $this->states[$this->state]);
+
+        } else {
+            $func = "handle{$command}Command";
+            $this->$func($line);
         }
-
     }
 
-    protected function sendReply($code, $message, $close = false)
+    protected function sendReply($code, $message = '', $close = false)
     {
         $out = '';
         if (is_array($message)) {
@@ -196,41 +225,109 @@ class Connection extends \React\Socket\Connection{
         $this->reset();
         $this->sendReply(250, "Reset OK");
     }
+
     protected function handleHeloCommand($domain)
     {
-        $this->state = self::STATUS_INIT;
-        $this->sendReply(250, "Hello {$this->getRemoteAddress()}");
+        $messages = [
+          "Hello {$this->getRemoteAddress()}",
+        ];
+        if ($this->authMethods) {
+            $this->state = self::STATUS_AUTH;
+            $messages[] = 'AUTH '.implode(' ', $this->authMethods);
+        } else {
+            $this->state = self::STATUS_INIT;
+        }
+        $this->sendReply(250, $messages);
     }
 
     protected function handleEhloCommand($domain)
     {
-        $this->state = self::STATUS_INIT;
-        $this->sendReply(250, "Hello {$this->getRemoteAddress()}");
+        $this->handleHeloCommand($domain);
+    }
+
+    protected function handleAuthCommand($method)
+    {
+        list($method, $token) = explode(' ', trim($method), 2);
+
+        switch (strtoupper($method)) {
+            case 'PLAIN':
+                $this->authMethod = new PlainMethod();
+
+                if (!isset($token)) {
+                    $this->sendReply(334);
+                } else {
+                    $this->authMethod->decodeToken($token);
+
+                    if ($this->authMethod->check()) {
+                        $this->state = self::STATUS_INIT;
+                        return;
+                    }
+
+                    $this->sendReply(235, '2.7.0 Authentication successful');
+                }
+                break;
+
+            case 'LOGIN':
+                $this->authMethod = new LoginMethod();
+
+                $this->sendReply(334, 'VXNlcm5hbWU6');
+                return;
+        }
+
+        $this->sendReply(530, "5.7.0 Authentication required");
+        $this->reset();
+    }
+
+    protected function handleLoginCommand($value)
+    {
+        if ($this->authMethod instanceof LoginMethod) {
+            if (!$this->login) {
+                $this->authMethod->setUsername($value);
+
+                // Ask for password.
+                $this->sendReply(334, 'UGFzc3dvcmQ6');
+                return;
+            } else {
+                $this->authMethod->setPassword($value);
+
+                if ($this->authMethod->check()) {
+                    $this->state = self::STATUS_INIT;
+                    $this->sendReply(235, '2.7.0 Authentication successful');
+                    return;
+                }
+            }
+        }
+
+        $this->sendReply(530, "5.7.0 Authentication required");
+        $this->reset();
     }
 
     protected function handleMailFromCommand($arguments)
     {
-
         // Parse the email.
         if (preg_match('/:\s*\<(?<email>.*)\>( .*)?/', $arguments, $matches) == 1) {
+            if (!$this->login && count($this->authMethods)) {
+                $this->sendReply(530, "5.7.0 Authentication required");
+                $this->reset();
+                return;
+            }
+
             $this->state = self::STATUS_FROM;
             $this->from  = $matches['email'];
             $this->sendReply(250, "MAIL OK");
         } else {
             $this->sendReply(500, "Invalid mail argument");
         }
-
     }
 
     protected function handleQuitCommand($arguments)
     {
         $this->sendReply(221, "Goodbye.", true);
-
     }
 
     protected function handleRcptToCommand($arguments) {
         // Parse the recipient.
-        if (preg_match('/:\s(?<name>.*?)?\<(?<email>.*)\>( .*)?/', $arguments, $matches) == 1) {
+        if (preg_match('/:\s*(?<name>.*?)?\<(?<email>.*)\>( .*)?/', $arguments, $matches) == 1) {
             // Always set to 3, since this command might occur multiple times.
             $this->state = self::STATUS_TO;
             $this->recipients[$matches['email']] = $matches['name'];
@@ -261,7 +358,14 @@ class Connection extends \React\Socket\Connection{
                 }
             });
 
+            $this->message->getBody()->seek(0);
 
+            $parser = new Parser();
+            $parser->setText($this->rawContent);
+
+            echo $this->rawContent;
+            var_dump($parser->getMessageBody('text'));
+            var_dump($parser->getMessageBody('html'));
 
             $this->emit('message', [
                 'from' => $this->from,
@@ -270,15 +374,16 @@ class Connection extends \React\Socket\Connection{
                 'connection' => $this,
             ]);
         } else {
+            $this->rawContent .= $line."\r\n";
+
             // Check if this is a header line.
             // For now support limited header names only..
             if (preg_match('/(?<name>\w+):(?<value>.*)/', $line, $matches) == 1 && $this->message->getBody()->getSize() == 0) {
                 $this->message = $this->message->withAddedHeader($matches['name'], $matches['value']);
             } else {
-                $this->message->getBody()->write($line);
+                $this->message->getBody()->write($line."\r\n");
             }
         }
-
     }
 
     /**
@@ -289,9 +394,13 @@ class Connection extends \React\Socket\Connection{
      */
     protected function reset($state = self::STATUS_INIT) {
         $this->state = $state;
+        $this->lastCommand = '';
         $this->from = null;
         $this->recipients = [];
         $this->message = new Message();
+        $this->rawContent = '';
+        $this->authMethod = false;
+        $this->login = false;
     }
 
     public function accept($message = "OK") {
@@ -325,10 +434,11 @@ class Connection extends \React\Socket\Connection{
         }
     }
 
+    /**
+     * @inheritdoc
+     */
     public function getRemoteAddress()
     {
         return parent::getRemoteAddress(); // TODO: Change the autogenerated stub
     }
-
-
 }
