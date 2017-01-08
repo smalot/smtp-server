@@ -620,7 +620,7 @@ class Connection extends Stream implements ConnectionInterface
      */
     protected function checkAuth()
     {
-        if ($this->server->checkAuth($this->authMethod)) {
+        if ($this->server->checkAuth($this, $this->authMethod)) {
             $this->login = $this->authMethod->getUsername();
             $this->changeState(self::STATUS_INIT);
             $this->sendReply(235, '2.7.0 Authentication successful');

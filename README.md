@@ -11,7 +11,7 @@ Widely inspired [SAM-IT/react-smtp](https://github.com/SAM-IT/react-smtp).
 Features:
 * supports many concurrent SMTP connections
 * supports anonymous connections
-* supports PLAIN and LOGIN authentication methods
+* supports PLAIN, LOGIN and CRAM-MD5 authentication methods
 * use Symfony event dispatcher
 
 It is advised to install additionnal PHP libraries:

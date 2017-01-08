@@ -1,13 +1,8 @@
 {
     "name": "sam-it/react-smtp",
-    "require": {
-        "react/event-loop": "^0.4.2",
-        "react/socket": "^0.4.3",
-        "symfony/event-dispatcher": "^3.2",
-        "monolog/monolog": "^1.22"
-    },
     "description" : "SMTP Server based on ReactPHP",
     "license" : "MIT",
+    "type": "library",
     "authors": [
         {
             "name": "Sam",
@@ -18,10 +13,18 @@
             "email": "sebastien@malot.fr"
         }
     ],
+    "require": {
+        "react/event-loop": "^0.4.2",
+        "react/socket": "^0.4.3",
+        "symfony/event-dispatcher": "^3.2",
+        "monolog/monolog": "^1.22"
+    },
+    "suggest": {
+        "php-mime-mail-parser/php-mime-mail-parser": "Mail parsing (mime multipart, attachments, ...)."
+    },
     "autoload": {
         "psr-4" : {
             "SamIT\\React\\Smtp\\" : ["src"]
-
         }
     }
 }

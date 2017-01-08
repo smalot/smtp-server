@@ -66,11 +66,12 @@ class Server extends \React\Socket\Server
     }
 
     /**
+     * @param Connection $connection
      * @param MethodInterface $method
      * @return bool
      */
-    public function checkAuth(MethodInterface $method)
+    public function checkAuth(Connection $connection, MethodInterface $method)
     {
-        return $method->validateIdentity('foo@gmail.com', 'foo@gmail.com');
+        return true;
     }
 }
