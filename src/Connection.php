@@ -10,6 +10,16 @@ use SamIT\React\Smtp\Auth\CramMd5Method;
 use SamIT\React\Smtp\Auth\LoginMethod;
 use SamIT\React\Smtp\Auth\MethodInterface;
 use SamIT\React\Smtp\Auth\PlainMethod;
+use SamIT\React\Smtp\Event\ConnectionAuthAcceptedEvent;
+use SamIT\React\Smtp\Event\ConnectionAuthRefusedEvent;
+use SamIT\React\Smtp\Event\ConnectionChangeStateEvent;
+use SamIT\React\Smtp\Event\ConnectionFromReceivedEvent;
+use SamIT\React\Smtp\Event\ConnectionHeloReceivedEvent;
+use SamIT\React\Smtp\Event\ConnectionLineReceivedEvent;
+use SamIT\React\Smtp\Event\ConnectionRcptReceivedEvent;
+use SamIT\React\Smtp\Event\MessageReceivedEvent;
+use Symfony\Component\EventDispatcher\Event;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Class Connection
@@ -17,6 +27,8 @@ use SamIT\React\Smtp\Auth\PlainMethod;
  */
 class Connection extends Stream implements ConnectionInterface
 {
+    const DELIMITER = "\r\n";
+
     const AUTH_METHOD_PLAIN = 'PLAIN';
     const AUTH_METHOD_LOGIN = 'LOGIN';
     const AUTH_METHOD_CRAM_MD5 = 'CRAM-MD5';
@@ -27,8 +39,6 @@ class Connection extends Stream implements ConnectionInterface
     const STATUS_FROM = 3;
     const STATUS_TO = 4;
     const STATUS_DATA = 5;
-
-    const DELIMITER = "\r\n";
 
     /**
      * This status is used when all mail data has been received and the system is deciding whether to accept or reject.
@@ -69,9 +79,7 @@ class Connection extends Stream implements ConnectionInterface
       self::STATUS_DATA => [
         'Line' => '' // This will match any line.
       ],
-      self::STATUS_PROCESSING => [
-
-      ],
+      self::STATUS_PROCESSING => [],
     ];
 
     /**
@@ -158,14 +166,24 @@ class Connection extends Stream implements ConnectionInterface
     protected $server;
 
     /**
+     * @var EventDispatcherInterface
+     */
+    protected $dispatcher;
+
+    /**
      * Connection constructor.
      * @param resource $stream
-     * @param \React\EventLoop\LoopInterface $loop
+     * @param LoopInterface $loop
+     * @param Server $server
+     * @param EventDispatcherInterface $dispatcher
      */
-    public function __construct($stream, LoopInterface $loop, Server $server)
+    public function __construct($stream, LoopInterface $loop, Server $server, EventDispatcherInterface $dispatcher = null)
     {
         parent::__construct($stream, $loop);
+
         $this->server = $server;
+        $this->dispatcher = $dispatcher;
+
         stream_get_meta_data($stream);
         // We sleep for 3 seconds, if client does not wait for our banner we disconnect.
         $disconnect = function ($data, ConnectionInterface $conn) {
@@ -174,6 +192,7 @@ class Connection extends Stream implements ConnectionInterface
         $this->on('data', $disconnect);
         $this->reset(self::STATUS_NEW);
         $this->on('line', [$this, 'handleCommand']);
+
         if ($this->bannerDelay > 0) {
             $loop->addTimer(
               $this->bannerDelay,
@@ -202,7 +221,7 @@ class Connection extends Stream implements ConnectionInterface
         if ('' !== $data && false !== $data) {
             $this->lineBuffer .= $data;
             if (strlen($this->lineBuffer) > $limit) {
-                $this->sendReply(500, "Line length limit exceeded.");
+                $this->sendReply(500, 'Line length limit exceeded.');
                 $this->lineBuffer = '';
             }
 
@@ -220,6 +239,61 @@ class Connection extends Stream implements ConnectionInterface
     }
 
     /**
+     * @return MethodInterface
+     */
+    public function getAuthMethod()
+    {
+        return $this->authMethod;
+    }
+
+    /**
+     * @return string
+     */
+    public function getFrom()
+    {
+        return $this->from;
+    }
+
+    /**
+     * @return array
+     */
+    public function getRecipients()
+    {
+        return $this->recipients;
+    }
+
+    /**
+     * @param string $eventName
+     * @param Event $event
+     * @return $this
+     */
+    protected function dispatchEvent($eventName, Event $event)
+    {
+        if (!is_null($this->dispatcher)) {
+            $this->dispatcher->dispatch($eventName, $event);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param int $state
+     * @return $this
+     */
+    protected function changeState($state)
+    {
+        if ($this->state != $state) {
+            $oldState = $this->state;
+            $this->state = $state;
+
+            $event = new ConnectionChangeStateEvent($this, $oldState, $state);
+            $this->dispatchEvent(Events::CONNECTION_CHANGE_STATE, $event);
+        }
+
+        return $this;
+    }
+
+    /**
      * Parses the command from the beginning of the line.
      *
      * @param string $line
@@ -227,30 +301,36 @@ class Connection extends Stream implements ConnectionInterface
      */
     protected function parseCommand(&$line)
     {
+        $command = null;
+
         if ($line) {
             foreach ($this->states[$this->state] as $key => $candidate) {
                 if (strncasecmp($candidate, $line, strlen($candidate)) == 0) {
                     $line = substr($line, strlen($candidate));
                     $this->lastCommand = $key;
+                    $command = $key;
 
-                    return $key;
+                    break;
                 }
             }
         }
 
-        if ($this->lastCommand == 'Line') {
-            return 'Line';
+        if (!$command && $this->lastCommand == 'Line') {
+            $command = $this->lastCommand;
         }
 
-        return null;
+        return $command;
     }
 
+    /**
+     * @param string $line
+     */
     protected function handleCommand($line)
     {
         $command = $this->parseCommand($line);
 
         if ($command == null) {
-            $this->sendReply(500, "Unexpected or unknown command: ".$line);
+            $this->sendReply(500, 'Unexpected or unknown command: '.$line);
             $this->sendReply(500, $this->states[$this->state]);
 
         } else {
@@ -259,23 +339,31 @@ class Connection extends Stream implements ConnectionInterface
         }
     }
 
+    /**
+     * @param int $code
+     * @param string $message
+     * @param bool $close
+     */
     protected function sendReply($code, $message = '', $close = false)
     {
         $out = '';
+
         if (is_array($message)) {
             $last = array_pop($message);
+
             foreach ($message as $line) {
                 $out .= "$code-$line\r\n";
             }
+
             $this->write($out);
             $message = $last;
         }
+
         if ($close) {
             $this->end("$code $message\r\n");
         } else {
             $this->write("$code $message\r\n");
         }
-
     }
 
     /**
@@ -284,7 +372,7 @@ class Connection extends Stream implements ConnectionInterface
     protected function handleResetCommand($domain)
     {
         $this->reset();
-        $this->sendReply(250, "Reset OK");
+        $this->sendReply(250, 'Reset OK');
     }
 
     /**
@@ -295,12 +383,17 @@ class Connection extends Stream implements ConnectionInterface
         $messages = [
           "Hello {$this->getRemoteAddress()}",
         ];
+
         if ($this->authMethods) {
-            $this->state = self::STATUS_AUTH;
+            $this->changeState(self::STATUS_AUTH);
             $messages[] = 'AUTH '.implode(' ', $this->authMethods);
         } else {
-            $this->state = self::STATUS_INIT;
+            $this->changeState(self::STATUS_INIT);
         }
+
+        $event = new ConnectionHeloReceivedEvent($this, trim($domain));
+        $this->dispatchEvent(Events::CONNECTION_HELO_RECEIVED, $event);
+
         $this->sendReply(250, $messages);
     }
 
@@ -324,20 +417,12 @@ class Connection extends Stream implements ConnectionInterface
                 $this->authMethod = new PlainMethod();
 
                 if (!isset($token)) {
+                    // Ask for token.
                     $this->sendReply(334);
-
-                    return;
                 } else {
                     // Plain auth accepts token in the same call.
                     $this->authMethod->decodeToken($token);
-
-                    if ($this->checkAuth()) {
-                        $this->state = self::STATUS_INIT;
-
-                        return;
-                    }
-
-                    $this->sendReply(235, '2.7.0 Authentication successful');
+                    $this->checkAuth();
                 }
                 break;
 
@@ -345,18 +430,17 @@ class Connection extends Stream implements ConnectionInterface
                 $this->authMethod = new LoginMethod();
                 // Send 'Username:'.
                 $this->sendReply(334, 'VXNlcm5hbWU6');
-
-                return;
+                break;
 
             case self::AUTH_METHOD_CRAM_MD5:
                 $this->authMethod = new CramMd5Method();
                 // Send 'Challenge'.
                 $this->sendReply(334, $this->authMethod->getChallenge());
+                break;
 
-                return;
+            default:
+                $this->sendReply(504, 'Unrecognized authentication type.');
         }
-
-        $this->sendReply(504, 'Unrecognized authentication type.');
     }
 
     /**
@@ -367,55 +451,29 @@ class Connection extends Stream implements ConnectionInterface
         switch ($this->authMethod->getType()) {
             case self::AUTH_METHOD_PLAIN:
                 $this->authMethod->decodeToken($value);
-
-                if ($this->checkAuth()) {
-                    $this->login = $this->authMethod->getUsername();
-                    $this->state = self::STATUS_INIT;
-                    $this->sendReply(235, '2.7.0 Authentication successful');
-
-                    return;
-                }
-
+                $this->checkAuth();
                 break;
 
             case self::AUTH_METHOD_LOGIN:
                 if (!$this->authMethod->getUsername()) {
                     $this->authMethod->setUsername($value);
-
                     // Send 'Password:'.
                     $this->sendReply(334, 'UGFzc3dvcmQ6');
-
-                    return;
                 } else {
                     $this->authMethod->setPassword($value);
-
-                    if ($this->checkAuth()) {
-                        $this->login = $this->authMethod->getUsername();
-                        $this->state = self::STATUS_INIT;
-                        $this->sendReply(235, '2.7.0 Authentication successful');
-
-                        return;
-                    }
+                    $this->checkAuth();
                 }
-
                 break;
 
             case self::AUTH_METHOD_CRAM_MD5:
                 $this->authMethod->decodeToken($value);
-
-                if ($this->checkAuth()) {
-                    $this->login = $this->authMethod->getUsername();
-                    $this->state = self::STATUS_INIT;
-                    $this->sendReply(235, '2.7.0 Authentication successful');
-
-                    return;
-                }
-
+                $this->checkAuth();
                 break;
-        }
 
-        $this->sendReply(530, "5.7.0 Authentication required");
-        $this->reset();
+            default:
+                $this->sendReply(530, '5.7.0 Authentication required');
+                $this->reset();
+        }
     }
 
     /**
@@ -426,17 +484,20 @@ class Connection extends Stream implements ConnectionInterface
         // Parse the email.
         if (preg_match('/:\s*\<(?<email>.*)\>( .*)?/', $arguments, $matches) == 1) {
             if (!$this->login && count($this->authMethods)) {
-                $this->sendReply(530, "5.7.0 Authentication required");
+                $this->sendReply(530, '5.7.0 Authentication required');
                 $this->reset();
 
                 return;
             }
 
-            $this->state = self::STATUS_FROM;
+            $this->changeState(self::STATUS_FROM);
             $this->from = $matches['email'];
-            $this->sendReply(250, "MAIL OK");
+            $this->sendReply(250, 'MAIL OK');
+
+            $event = new ConnectionFromReceivedEvent($this, $matches['email'], null);
+            $this->dispatchEvent(Events::CONNECTION_FROM_RECEIVED, $event);
         } else {
-            $this->sendReply(500, "Invalid mail argument");
+            $this->sendReply(500, 'Invalid mail argument');
         }
     }
 
@@ -445,7 +506,7 @@ class Connection extends Stream implements ConnectionInterface
      */
     protected function handleQuitCommand($arguments)
     {
-        $this->sendReply(221, "Goodbye.", true);
+        $this->sendReply(221, 'Goodbye.', true);
     }
 
     /**
@@ -455,12 +516,15 @@ class Connection extends Stream implements ConnectionInterface
     {
         // Parse the recipient.
         if (preg_match('/:\s*(?<name>.*?)?\<(?<email>.*)\>( .*)?/', $arguments, $matches) == 1) {
-            // Always set to 3, since this command might occur multiple times.
-            $this->state = self::STATUS_TO;
+            // Always set to 4, since this command might occur multiple times.
+            $this->changeState(self::STATUS_TO);
             $this->recipients[$matches['email']] = $matches['name'];
-            $this->sendReply(250, "Accepted");
+            $this->sendReply(250, 'Accepted');
+
+            $event = new ConnectionRcptReceivedEvent($this, $matches['email'], $matches['name']);
+            $this->dispatchEvent(Events::CONNECTION_RCPT_RECEIVED, $event);
         } else {
-            $this->sendReply(500, "Invalid RCPT TO argument.");
+            $this->sendReply(500, 'Invalid RCPT TO argument.');
         }
     }
 
@@ -469,8 +533,8 @@ class Connection extends Stream implements ConnectionInterface
      */
     protected function handleDataCommand($arguments)
     {
-        $this->state = self::STATUS_DATA;
-        $this->sendReply(354, "Enter message, end with CRLF . CRLF");
+        $this->changeState(self::STATUS_DATA);
+        $this->sendReply(354, 'Enter message, end with CRLF . CRLF');
     }
 
     /**
@@ -479,7 +543,7 @@ class Connection extends Stream implements ConnectionInterface
     protected function handleLineCommand($line)
     {
         if ($line === '.') {
-            $this->state = self::STATUS_PROCESSING;
+            $this->changeState(self::STATUS_PROCESSING);
 
             /**
              * Default action, using timer so that callbacks above can be called asynchronously.
@@ -495,17 +559,13 @@ class Connection extends Stream implements ConnectionInterface
               }
             );
 
-            $this->emit(
-              'message',
-              [
-                'from' => $this->from,
-                'recipients' => $this->recipients,
-                'message' => $this->rawContent,
-                'connection' => $this,
-              ]
-            );
+            $event = new MessageReceivedEvent($this, $this->rawContent);
+            $this->dispatchEvent(Events::MESSAGE_RECEIVED, $event);
         } else {
             $this->rawContent .= $line.self::DELIMITER;
+
+            $event = new ConnectionLineReceivedEvent($this, $line);
+            $this->dispatchEvent(Events::CONNECTION_LINE_RECEIVED, $event);
         }
     }
 
@@ -529,10 +589,10 @@ class Connection extends Stream implements ConnectionInterface
     /**
      * @param string $message
      */
-    public function accept($message = "OK")
+    public function accept($message = 'OK')
     {
         if ($this->state != self::STATUS_PROCESSING) {
-            throw new \DomainException("SMTP Connection not in a valid state to accept a message.");
+            throw new \DomainException('SMTP Connection not in a valid state to accept a message.');
         }
         $this->loop->cancelTimer($this->defaultActionTimer);
         unset($this->defaultActionTimer);
@@ -544,10 +604,10 @@ class Connection extends Stream implements ConnectionInterface
      * @param int $code
      * @param string $message
      */
-    public function reject($code = 550, $message = "Message not accepted")
+    public function reject($code = 550, $message = 'Message not accepted')
     {
         if ($this->state != self::STATUS_PROCESSING) {
-            throw new \DomainException("SMTP Connection not in a valid state to reject message.");
+            throw new \DomainException('SMTP Connection not in a valid state to reject message.');
         }
         $this->defaultActionTimer->cancel();
         unset($this->defaultActionTimer);
@@ -560,19 +620,40 @@ class Connection extends Stream implements ConnectionInterface
      */
     protected function checkAuth()
     {
-        return $this->server->checkAuth($this->authMethod);
+        if ($this->server->checkAuth($this->authMethod)) {
+            $this->login = $this->authMethod->getUsername();
+            $this->changeState(self::STATUS_INIT);
+            $this->sendReply(235, '2.7.0 Authentication successful');
+
+            $event = new ConnectionAuthAcceptedEvent($this, $this->authMethod);
+            $this->dispatchEvent(Events::CONNECTION_AUTH_ACCEPTED, $event);
+
+            return true;
+        } else {
+            $this->sendReply(535, 'Authentication credentials invalid');
+
+            $event = new ConnectionAuthRefusedEvent($this, $this->authMethod);
+            $this->dispatchEvent(Events::CONNECTION_AUTH_REFUSED, $event);
+
+            return false;
+        }
     }
 
     /**
      * Delay the default action by $seconds.
      * @param int $seconds
+     * @return bool
      */
     public function delay($seconds)
     {
         if (isset($this->defaultActionTimer)) {
             $this->defaultActionTimer->cancel();
             $this->defaultActionTimer = $this->loop->addTimer($seconds, $this->defaultActionTimer->getCallback());
+
+            return true;
         }
+
+        return false;
     }
 
     /**
@@ -585,6 +666,7 @@ class Connection extends Stream implements ConnectionInterface
             stream_socket_shutdown($this->stream, STREAM_SHUT_RDWR);
             stream_set_blocking($this->stream, false);
             fclose($this->stream);
+            $this->stream = null;
         }
     }
 

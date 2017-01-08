@@ -4,6 +4,7 @@ namespace SamIT\React\Smtp;
 
 use React\EventLoop\LoopInterface;
 use SamIT\React\Smtp\Auth\MethodInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Class Server
@@ -32,14 +33,21 @@ class Server extends \React\Socket\Server
     private $loop;
 
     /**
+     * @var EventDispatcherInterface
+     */
+    protected $dispatcher;
+
+    /**
      * Server constructor.
      * @param LoopInterface $loop
      */
-    public function __construct(LoopInterface $loop)
+    public function __construct(LoopInterface $loop, EventDispatcherInterface $dispatcher)
     {
+        parent::__construct($loop);
+
         // We need to save $loop here since it is private for some reason.
         $this->loop = $loop;
-        parent::__construct($loop);
+        $this->dispatcher = $dispatcher;
     }
 
     /**
@@ -48,15 +56,11 @@ class Server extends \React\Socket\Server
      */
     public function createConnection($socket)
     {
-        $conn = new Connection($socket, $this->loop, $this);
+        $conn = new Connection($socket, $this->loop, $this, $this->dispatcher);
 
         $conn->recipientLimit = $this->recipientLimit;
         $conn->bannerDelay = $this->bannerDelay;
         $conn->authMethods = $this->authMethods;
-        // We let messages "bubble up" from the connection to the server.
-        $conn->on('message', function() {
-            $this->emit('message', func_get_args());
-        });
 
         return $conn;
     }
@@ -67,8 +71,6 @@ class Server extends \React\Socket\Server
      */
     public function checkAuth(MethodInterface $method)
     {
-        echo 'Connection granted for '.$method->getUsername().PHP_EOL;
-
         return $method->validateIdentity('foo@gmail.com', 'foo@gmail.com');
     }
 }
