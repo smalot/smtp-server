@@ -3,6 +3,7 @@
 namespace SamIT\React\Smtp;
 
 use React\EventLoop\LoopInterface;
+use SamIT\React\Smtp\Auth\MethodInterface;
 
 /**
  * Class Server
@@ -19,6 +20,11 @@ class Server extends \React\Socket\Server
      * @var int
      */
     public $bannerDelay = 0;
+
+    /**
+     * @var array
+     */
+    public $authMethods = [];
 
     /**
      * @var LoopInterface
@@ -42,15 +48,27 @@ class Server extends \React\Socket\Server
      */
     public function createConnection($socket)
     {
-        $conn = new Connection($socket, $this->loop);
+        $conn = new Connection($socket, $this->loop, $this);
 
         $conn->recipientLimit = $this->recipientLimit;
         $conn->bannerDelay = $this->bannerDelay;
+        $conn->authMethods = $this->authMethods;
         // We let messages "bubble up" from the connection to the server.
         $conn->on('message', function() {
             $this->emit('message', func_get_args());
         });
 
         return $conn;
+    }
+
+    /**
+     * @param MethodInterface $method
+     * @return bool
+     */
+    public function checkAuth(MethodInterface $method)
+    {
+        echo 'Connection granted for '.$method->getUsername().PHP_EOL;
+
+        return true;
     }
 }

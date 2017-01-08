@@ -6,7 +6,7 @@ namespace SamIT\React\Smtp\Auth;
  * Class PlainMethod
  * @package SamIT\React\Smtp\Auth
  */
-class PlainMethod
+class PlainMethod implements MethodInterface
 {
     /**
      * @var string
@@ -61,13 +61,5 @@ class PlainMethod
         $this->password = $parts[2];
 
         return $this;
-    }
-
-    /**
-     * @return bool
-     */
-    public function check()
-    {
-        return true;
     }
 }

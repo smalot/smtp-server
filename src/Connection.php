@@ -123,7 +123,7 @@ class Connection extends Stream implements ConnectionInterface
     /**
      * @var array
      */
-    protected $authMethods = [];
+    public $authMethods = [];
 
     /**
      * @var MethodInterface
@@ -151,13 +151,19 @@ class Connection extends Stream implements ConnectionInterface
     public $recipientLimit = 100;
 
     /**
+     * @var Server
+     */
+    protected $server;
+
+    /**
      * Connection constructor.
      * @param resource $stream
      * @param \React\EventLoop\LoopInterface $loop
      */
-    public function __construct($stream, LoopInterface $loop)
+    public function __construct($stream, LoopInterface $loop, Server $server)
     {
         parent::__construct($stream, $loop);
+        $this->server = $server;
         stream_get_meta_data($stream);
         // We sleep for 3 seconds, if client does not wait for our banner we disconnect.
         $disconnect = function ($data, ConnectionInterface $conn) {
@@ -323,7 +329,7 @@ class Connection extends Stream implements ConnectionInterface
                     // Plain auth accepts token in the same call.
                     $this->authMethod->decodeToken($token);
 
-                    if ($this->authMethod->check()) {
+                    if ($this->checkAuth()) {
                         $this->state = self::STATUS_INIT;
 
                         return;
@@ -361,7 +367,7 @@ class Connection extends Stream implements ConnectionInterface
             } else {
                 $this->authMethod->setPassword($value);
 
-                if ($this->authMethod->check()) {
+                if ($this->checkAuth()) {
                     $this->login = $this->authMethod->getUsername();
                     $this->state = self::STATUS_INIT;
                     $this->sendReply(235, '2.7.0 Authentication successful');
@@ -372,7 +378,7 @@ class Connection extends Stream implements ConnectionInterface
         } elseif ($this->authMethod instanceof PlainMethod) {
             $this->authMethod->decodeToken($value);
 
-            if ($this->authMethod->check()) {
+            if ($this->checkAuth()) {
                 $this->login = $this->authMethod->getUsername();
                 $this->state = self::STATUS_INIT;
                 $this->sendReply(235, '2.7.0 Authentication successful');
@@ -520,6 +526,14 @@ class Connection extends Stream implements ConnectionInterface
         unset($this->defaultActionTimer);
         $this->sendReply($code, $message);
         $this->reset();
+    }
+
+    /**
+     * @return bool
+     */
+    protected function checkAuth()
+    {
+        return $this->server->checkAuth($this->authMethod);
     }
 
     /**

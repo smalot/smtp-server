@@ -6,7 +6,7 @@ namespace SamIT\React\Smtp\Auth;
  * Class LoginMethod
  * @package SamIT\React\Smtp\Auth
  */
-class LoginMethod
+class LoginMethod implements MethodInterface
 {
     /**
      * @var string
@@ -69,13 +69,5 @@ class LoginMethod
         $this->password = base64_decode($password);
 
         return $this;
-    }
-
-    /**
-     * @return bool
-     */
-    public function check()
-    {
-        return true;
     }
 }

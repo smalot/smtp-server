@@ -22,9 +22,4 @@ interface MethodInterface
      * @return string
      */
     public function getPassword();
-
-    /**
-     * @return bool
-     */
-    public function check();
 }
