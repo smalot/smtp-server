@@ -177,8 +177,12 @@ class Connection extends Stream implements ConnectionInterface
      * @param Server $server
      * @param EventDispatcherInterface $dispatcher
      */
-    public function __construct($stream, LoopInterface $loop, Server $server, EventDispatcherInterface $dispatcher = null)
-    {
+    public function __construct(
+      $stream,
+      LoopInterface $loop,
+      Server $server,
+      EventDispatcherInterface $dispatcher = null
+    ) {
         parent::__construct($stream, $loop);
 
         $this->server = $server;
@@ -448,6 +452,11 @@ class Connection extends Stream implements ConnectionInterface
      */
     protected function handleLoginCommand($value)
     {
+        if (!$this->authMethod) {
+            $this->sendReply(530, '5.7.0 Authentication required');
+            return;
+        }
+
         switch ($this->authMethod->getType()) {
             case self::AUTH_METHOD_PLAIN:
                 $this->authMethod->decodeToken($value);
