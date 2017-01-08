@@ -124,6 +124,8 @@ catch(\Exception $e) {
 
 ### Composer
 
+Sample project code for both `client` and `server` parts.
+
 ````json
 {
     "require": {

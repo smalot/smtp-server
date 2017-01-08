@@ -1,2 +1,4 @@
-vendor
-/nbproject/private/
+/.idea/*
+/vendor/
+client.php
+server.php
