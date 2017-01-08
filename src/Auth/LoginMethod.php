@@ -34,6 +34,14 @@ class LoginMethod
     }
 
     /**
+     * @return string
+     */
+    public function getUsername()
+    {
+        return $this->username;
+    }
+
+    /**
      * @param string $user
      * @return $this
      */

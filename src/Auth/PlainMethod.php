@@ -34,15 +34,23 @@ class PlainMethod
     }
 
     /**
+     * @return string
+     */
+    public function getUsername()
+    {
+        return $this->username;
+    }
+
+    /**
      * @param string $token
      * @return $this
      */
     public function decodeToken($token)
     {
-        list($username, $password) = explode(':', base64_decode($token), 2);
+        $parts = explode("\000", base64_decode($token));
 
-        $this->username = $username;
-        $this->password = $password;
+        $this->username = $parts[1];
+        $this->password = $parts[2];
 
         return $this;
     }
