@@ -2,7 +2,7 @@
 
 SMTP Server based on ReactPHP.
 
-Widely inspired [SAM-IT/react-smtp](https://github.com/SAM-IT/react-smtp).
+Widely inspired from [SAM-IT/react-smtp](https://github.com/SAM-IT/react-smtp).
 
 [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/SAM-IT/react-smtp/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/SAM-IT/react-smtp/?branch=master)
 [![Code Coverage](https://scrutinizer-ci.com/g/SAM-IT/react-smtp/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/SAM-IT/react-smtp/?branch=master)
@@ -130,7 +130,7 @@ Sample project code for both `client` and `server` parts.
 {
     "require": {
         "react/event-loop": "^0.4.2",
-        "sam-it/react-smtp": "dev-master",
+        "smalot/smtp-server": "dev-master",
         "phpmailer/phpmailer": "^5.2"
     },
     "repositories": [
