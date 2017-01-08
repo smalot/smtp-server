@@ -1,12 +1,23 @@
-# react-smtp
+# SMTP Server
 
-SMTP Server based on ReactPHP
+SMTP Server based on ReactPHP.
 
-It supports many concurrent SMTP connections.
+Widely inspired [SAM-IT/react-smtp](https://github.com/SAM-IT/react-smtp).
 
 [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/SAM-IT/react-smtp/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/SAM-IT/react-smtp/?branch=master)
 [![Code Coverage](https://scrutinizer-ci.com/g/SAM-IT/react-smtp/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/SAM-IT/react-smtp/?branch=master)
 [![Build Status](https://scrutinizer-ci.com/g/SAM-IT/react-smtp/badges/build.png?b=master)](https://scrutinizer-ci.com/g/SAM-IT/react-smtp/build-status/master)
+
+Features:
+* supports many concurrent SMTP connections
+* supports anonymous connections
+* supports PLAIN and LOGIN authentication methods
+* use Symfony event dispatcher
+
+It is advised to install additionnal PHP libraries:
+* [events](https://pecl.php.net/package/event)
+* [mailparse](https://pecl.php.net/package/mailparse)
+
 
 ## Sample code
 
@@ -21,7 +32,8 @@ try {
     $server->authMethods = [\SamIT\React\Smtp\Connection::AUTH_METHOD_LOGIN, \SamIT\React\Smtp\Connection::AUTH_METHOD_PLAIN];
     $server->listen(25);
     $server->on('message', function($from, array $recipients, $message, \SamIT\React\Smtp\Connection $connection) {
-        echo 'Message received'.PHP_EOL.'--------------------------'.PHP_EOL;
+        echo 'Message received'.PHP_EOL;
+        echo '--------------------------'.PHP_EOL;
         echo $message.PHP_EOL;
     });
     $loop->run();
