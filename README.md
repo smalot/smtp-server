@@ -93,6 +93,8 @@ catch(\Exception $e) {
 
 Using the `"php-mime-mail-parser/php-mime-mail-parser": "^2.6"` package, you can parse the whole message.
 
+doc: https://packagist.org/packages/php-mime-mail-parser/php-mime-mail-parser
+
 However, need to install the `mailparse` PHP Extension.
 To do such a thing, you need to install the `mbstring` PHP Extension, compile it with `PEAR` and enable the `mailparse` extension after the `mbstring` (using a higher digit).
 
