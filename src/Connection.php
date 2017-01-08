@@ -26,6 +26,8 @@ class Connection extends Stream implements ConnectionInterface
     const STATUS_TO = 4;
     const STATUS_DATA = 5;
 
+    const DELIMITER = "\r\n";
+
     /**
      * This status is used when all mail data has been received and the system is deciding whether to accept or reject.
      */
@@ -196,7 +198,7 @@ class Connection extends Stream implements ConnectionInterface
                 $this->lineBuffer = '';
             }
 
-            $delimiter = "\r\n";
+            $delimiter = self::DELIMITER;
             while (false !== $pos = strpos($this->lineBuffer, $delimiter)) {
                 $line = substr($this->lineBuffer, 0, $pos);
                 $this->lineBuffer = substr($this->lineBuffer, $pos + strlen($delimiter));
@@ -318,6 +320,7 @@ class Connection extends Stream implements ConnectionInterface
 
                     return;
                 } else {
+                    // Plain auth accepts token in the same call.
                     $this->authMethod->decodeToken($token);
 
                     if ($this->authMethod->check()) {
@@ -469,7 +472,7 @@ class Connection extends Stream implements ConnectionInterface
               ]
             );
         } else {
-            $this->rawContent .= $line."\r\n";
+            $this->rawContent .= $line.self::DELIMITER;
         }
     }
 
