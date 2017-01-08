@@ -53,6 +53,14 @@ class LoginMethod
     }
 
     /**
+     * @return string
+     */
+    public function getPassword()
+    {
+        return $this->password;
+    }
+
+    /**
      * @param string $password
      * @return $this
      */
@@ -68,8 +76,6 @@ class LoginMethod
      */
     public function check()
     {
-        var_dump('check', $this->username, $this->password);
-
         return true;
     }
 }

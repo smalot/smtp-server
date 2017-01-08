@@ -19,6 +19,11 @@ interface MethodInterface
     public function getUsername();
 
     /**
+     * @return string
+     */
+    public function getPassword();
+
+    /**
      * @return bool
      */
     public function check();

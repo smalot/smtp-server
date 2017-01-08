@@ -42,6 +42,14 @@ class PlainMethod
     }
 
     /**
+     * @return string
+     */
+    public function getPassword()
+    {
+        return $this->password;
+    }
+
+    /**
      * @param string $token
      * @return $this
      */
@@ -60,8 +68,6 @@ class PlainMethod
      */
     public function check()
     {
-        var_dump('check', $this->username, $this->password);
-
         return true;
     }
 }
