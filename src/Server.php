@@ -56,13 +56,13 @@ class Server extends \React\Socket\Server
      */
     public function createConnection($socket)
     {
-        $conn = new Connection($socket, $this->loop, $this, $this->dispatcher);
+        $connection = new Connection($socket, $this->loop, $this, $this->dispatcher);
 
-        $conn->recipientLimit = $this->recipientLimit;
-        $conn->bannerDelay = $this->bannerDelay;
-        $conn->authMethods = $this->authMethods;
+        $connection->recipientLimit = $this->recipientLimit;
+        $connection->bannerDelay = $this->bannerDelay;
+        $connection->authMethods = $this->authMethods;
 
-        return $conn;
+        return $connection;
     }
 
     /**

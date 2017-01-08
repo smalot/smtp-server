@@ -54,21 +54,27 @@ class MyServer extends \SamIT\React\Smtp\Server
 
 ## Sample code
 
-### Server side
+### Server side - launcher
 
 ````php
 include 'vendor/autoload.php';
 
 try {
+    $dispatcher = new \Symfony\Component\EventDispatcher\EventDispatcher();
+
+    $logger = new \Monolog\Logger('log');
+    $dispatcher->addSubscriber(new \SamIT\React\Smtp\Event\LogSubscriber($logger));
+    
     $loop = React\EventLoop\Factory::create();
-    $server = new \SamIT\React\Smtp\Server($loop);
-    $server->authMethods = [\SamIT\React\Smtp\Connection::AUTH_METHOD_LOGIN, \SamIT\React\Smtp\Connection::AUTH_METHOD_PLAIN];
+    $server = new \SamIT\React\Smtp\Server($loop, $dispatcher);
+    // Enable 3 authentication methods.
+    $server->authMethods = [
+      \SamIT\React\Smtp\Connection::AUTH_METHOD_LOGIN,
+      \SamIT\React\Smtp\Connection::AUTH_METHOD_PLAIN,
+      \SamIT\React\Smtp\Connection::AUTH_METHOD_CRAM_MD5,
+    ];
+    // Listen on port 25.
     $server->listen(25);
-    $server->on('message', function($from, array $recipients, $message, \SamIT\React\Smtp\Connection $connection) {
-        echo 'Message received'.PHP_EOL;
-        echo '--------------------------'.PHP_EOL;
-        echo $message.PHP_EOL;
-    });
     $loop->run();
 }
 catch(\Exception $e) {
