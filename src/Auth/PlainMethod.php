@@ -62,4 +62,14 @@ class PlainMethod implements MethodInterface
 
         return $this;
     }
+
+    /**
+     * @param string $username
+     * @param string $password
+     * @return bool
+     */
+    public function validateIdentity($username, $password)
+    {
+        return $password == $this->password;
+    }
 }

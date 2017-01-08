@@ -6,6 +6,7 @@ use React\EventLoop\LoopInterface;
 use React\EventLoop\Timer\TimerInterface;
 use React\Socket\ConnectionInterface;
 use React\Stream\Stream;
+use SamIT\React\Smtp\Auth\CramMd5Method;
 use SamIT\React\Smtp\Auth\LoginMethod;
 use SamIT\React\Smtp\Auth\MethodInterface;
 use SamIT\React\Smtp\Auth\PlainMethod;
@@ -18,6 +19,7 @@ class Connection extends Stream implements ConnectionInterface
 {
     const AUTH_METHOD_PLAIN = 'PLAIN';
     const AUTH_METHOD_LOGIN = 'LOGIN';
+    const AUTH_METHOD_CRAM_MD5 = 'CRAM-MD5';
 
     const STATUS_NEW = 0;
     const STATUS_AUTH = 1;
@@ -345,10 +347,16 @@ class Connection extends Stream implements ConnectionInterface
                 $this->sendReply(334, 'VXNlcm5hbWU6');
 
                 return;
+
+            case self::AUTH_METHOD_CRAM_MD5:
+                $this->authMethod = new CramMd5Method();
+                // Send 'Challenge'.
+                $this->sendReply(334, $this->authMethod->getChallenge());
+
+                return;
         }
 
-        $this->sendReply(530, "5.7.0 Authentication required");
-        $this->reset();
+        $this->sendReply(504, 'Unrecognized authentication type.');
     }
 
     /**
@@ -356,16 +364,9 @@ class Connection extends Stream implements ConnectionInterface
      */
     protected function handleLoginCommand($value)
     {
-        if ($this->authMethod instanceof LoginMethod) {
-            if (!$this->authMethod->getUsername()) {
-                $this->authMethod->setUsername($value);
-
-                // Send 'Password:'.
-                $this->sendReply(334, 'UGFzc3dvcmQ6');
-
-                return;
-            } else {
-                $this->authMethod->setPassword($value);
+        switch ($this->authMethod->getType()) {
+            case self::AUTH_METHOD_PLAIN:
+                $this->authMethod->decodeToken($value);
 
                 if ($this->checkAuth()) {
                     $this->login = $this->authMethod->getUsername();
@@ -374,17 +375,43 @@ class Connection extends Stream implements ConnectionInterface
 
                     return;
                 }
-            }
-        } elseif ($this->authMethod instanceof PlainMethod) {
-            $this->authMethod->decodeToken($value);
 
-            if ($this->checkAuth()) {
-                $this->login = $this->authMethod->getUsername();
-                $this->state = self::STATUS_INIT;
-                $this->sendReply(235, '2.7.0 Authentication successful');
+                break;
 
-                return;
-            }
+            case self::AUTH_METHOD_LOGIN:
+                if (!$this->authMethod->getUsername()) {
+                    $this->authMethod->setUsername($value);
+
+                    // Send 'Password:'.
+                    $this->sendReply(334, 'UGFzc3dvcmQ6');
+
+                    return;
+                } else {
+                    $this->authMethod->setPassword($value);
+
+                    if ($this->checkAuth()) {
+                        $this->login = $this->authMethod->getUsername();
+                        $this->state = self::STATUS_INIT;
+                        $this->sendReply(235, '2.7.0 Authentication successful');
+
+                        return;
+                    }
+                }
+
+                break;
+
+            case self::AUTH_METHOD_CRAM_MD5:
+                $this->authMethod->decodeToken($value);
+
+                if ($this->checkAuth()) {
+                    $this->login = $this->authMethod->getUsername();
+                    $this->state = self::STATUS_INIT;
+                    $this->sendReply(235, '2.7.0 Authentication successful');
+
+                    return;
+                }
+
+                break;
         }
 
         $this->sendReply(530, "5.7.0 Authentication required");

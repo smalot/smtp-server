@@ -69,6 +69,6 @@ class Server extends \React\Socket\Server
     {
         echo 'Connection granted for '.$method->getUsername().PHP_EOL;
 
-        return true;
+        return $method->validateIdentity('foo@gmail.com', 'foo@gmail.com');
     }
 }

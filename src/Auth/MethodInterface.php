@@ -22,4 +22,11 @@ interface MethodInterface
      * @return string
      */
     public function getPassword();
+
+    /**
+     * @param string $username
+     * @param string $password
+     * @return bool
+     */
+    public function validateIdentity($username, $password);
 }
