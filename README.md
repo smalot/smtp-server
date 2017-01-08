@@ -23,7 +23,7 @@ It is advised to install additionnal PHP libraries:
 By default, `username` and `password` are not checked. However, you can override the `Server` class to implement your own logic.
 
 ````php
-class MyServer extends \SamIT\React\Smtp\Server
+class MyServer extends \Smalot\Smtp\Server\Server
 {
     /**
      * @param Connection $connection
@@ -63,15 +63,15 @@ try {
     $dispatcher = new \Symfony\Component\EventDispatcher\EventDispatcher();
 
     $logger = new \Monolog\Logger('log');
-    $dispatcher->addSubscriber(new \SamIT\React\Smtp\Event\LogSubscriber($logger));
+    $dispatcher->addSubscriber(new \Smalot\Smtp\Server\Event\LogSubscriber($logger));
     
     $loop = React\EventLoop\Factory::create();
-    $server = new \SamIT\React\Smtp\Server($loop, $dispatcher);
+    $server = new \Smalot\Smtp\Server\Server($loop, $dispatcher);
     // Enable 3 authentication methods.
     $server->authMethods = [
-      \SamIT\React\Smtp\Connection::AUTH_METHOD_LOGIN,
-      \SamIT\React\Smtp\Connection::AUTH_METHOD_PLAIN,
-      \SamIT\React\Smtp\Connection::AUTH_METHOD_CRAM_MD5,
+      \Smalot\Smtp\Server\Connection::AUTH_METHOD_LOGIN,
+      \Smalot\Smtp\Server\Connection::AUTH_METHOD_PLAIN,
+      \Smalot\Smtp\Server\Connection::AUTH_METHOD_CRAM_MD5,
     ];
     // Listen on port 25.
     $server->listen(25);

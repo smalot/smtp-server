@@ -1,10 +1,10 @@
 <?php
 
-namespace SamIT\React\Smtp;
+namespace Smalot\Smtp\Server;
 
 /**
  * Class Events
- * @package SamIT\React\Smtp
+ * @package Smalot\Smtp\Server
  */
 final class Events
 {

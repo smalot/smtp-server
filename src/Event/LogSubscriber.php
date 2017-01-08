@@ -1,14 +1,14 @@
 <?php
 
-namespace SamIT\React\Smtp\Event;
+namespace Smalot\Smtp\Server\Event;
 
 use Psr\Log\LoggerInterface;
-use SamIT\React\Smtp\Events;
+use Smalot\Smtp\Server\Events;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
  * Class LogSubscriber
- * @package SamIT\React\Smtp\Event
+ * @package Smalot\Smtp\Server\Event
  */
 class LogSubscriber implements EventSubscriberInterface
 {

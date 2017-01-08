@@ -1,14 +1,14 @@
 <?php
 
-namespace SamIT\React\Smtp;
+namespace Smalot\Smtp\Server;
 
 use React\EventLoop\LoopInterface;
-use SamIT\React\Smtp\Auth\MethodInterface;
+use Smalot\Smtp\Server\Auth\MethodInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Class Server
- * @package SamIT\React\Smtp
+ * @package Smalot\Smtp\Server
  */
 class Server extends \React\Socket\Server
 {

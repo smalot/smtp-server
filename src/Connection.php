@@ -1,29 +1,29 @@
 <?php
 
-namespace SamIT\React\Smtp;
+namespace Smalot\Smtp\Server;
 
 use React\EventLoop\LoopInterface;
 use React\EventLoop\Timer\TimerInterface;
 use React\Socket\ConnectionInterface;
 use React\Stream\Stream;
-use SamIT\React\Smtp\Auth\CramMd5Method;
-use SamIT\React\Smtp\Auth\LoginMethod;
-use SamIT\React\Smtp\Auth\MethodInterface;
-use SamIT\React\Smtp\Auth\PlainMethod;
-use SamIT\React\Smtp\Event\ConnectionAuthAcceptedEvent;
-use SamIT\React\Smtp\Event\ConnectionAuthRefusedEvent;
-use SamIT\React\Smtp\Event\ConnectionChangeStateEvent;
-use SamIT\React\Smtp\Event\ConnectionFromReceivedEvent;
-use SamIT\React\Smtp\Event\ConnectionHeloReceivedEvent;
-use SamIT\React\Smtp\Event\ConnectionLineReceivedEvent;
-use SamIT\React\Smtp\Event\ConnectionRcptReceivedEvent;
-use SamIT\React\Smtp\Event\MessageReceivedEvent;
+use Smalot\Smtp\Server\Auth\CramMd5Method;
+use Smalot\Smtp\Server\Auth\LoginMethod;
+use Smalot\Smtp\Server\Auth\MethodInterface;
+use Smalot\Smtp\Server\Auth\PlainMethod;
+use Smalot\Smtp\Server\Event\ConnectionAuthAcceptedEvent;
+use Smalot\Smtp\Server\Event\ConnectionAuthRefusedEvent;
+use Smalot\Smtp\Server\Event\ConnectionChangeStateEvent;
+use Smalot\Smtp\Server\Event\ConnectionFromReceivedEvent;
+use Smalot\Smtp\Server\Event\ConnectionHeloReceivedEvent;
+use Smalot\Smtp\Server\Event\ConnectionLineReceivedEvent;
+use Smalot\Smtp\Server\Event\ConnectionRcptReceivedEvent;
+use Smalot\Smtp\Server\Event\MessageReceivedEvent;
 use Symfony\Component\EventDispatcher\Event;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Class Connection
- * @package SamIT\React\Smtp
+ * @package Smalot\Smtp\Server
  */
 class Connection extends Stream implements ConnectionInterface
 {

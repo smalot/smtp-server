@@ -1,13 +1,13 @@
 <?php
 
-namespace SamIT\React\Smtp\Event;
+namespace Smalot\Smtp\Server\Event;
 
-use SamIT\React\Smtp\Connection;
+use Smalot\Smtp\Server\Connection;
 use Symfony\Component\EventDispatcher\Event;
 
 /**
  * Class MessageReceivedEvent
- * @package SamIT\React\Smtp\Event
+ * @package Smalot\Smtp\Server\Event
  */
 class MessageReceivedEvent extends Event
 {

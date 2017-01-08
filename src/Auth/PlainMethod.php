@@ -1,10 +1,10 @@
 <?php
 
-namespace SamIT\React\Smtp\Auth;
+namespace Smalot\Smtp\Server\Auth;
 
 /**
  * Class PlainMethod
- * @package SamIT\React\Smtp\Auth
+ * @package Smalot\Smtp\Server\Auth
  */
 class PlainMethod implements MethodInterface
 {

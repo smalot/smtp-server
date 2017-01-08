@@ -1,14 +1,14 @@
 <?php
 
-namespace SamIT\React\Smtp\Event;
+namespace Smalot\Smtp\Server\Event;
 
-use SamIT\React\Smtp\Auth\MethodInterface;
-use SamIT\React\Smtp\Connection;
+use Smalot\Smtp\Server\Auth\MethodInterface;
+use Smalot\Smtp\Server\Connection;
 use Symfony\Component\EventDispatcher\Event;
 
 /**
  * Class ConnectionAuthRefusedEvent
- * @package SamIT\React\Smtp\Event
+ * @package Smalot\Smtp\Server\Event
  */
 class ConnectionAuthRefusedEvent extends Event
 {

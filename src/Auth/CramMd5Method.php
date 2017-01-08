@@ -1,10 +1,10 @@
 <?php
 
-namespace SamIT\React\Smtp\Auth;
+namespace Smalot\Smtp\Server\Auth;
 
 /**
  * Class CramMd5Method
- * @package SamIT\React\Smtp\Auth
+ * @package Smalot\Smtp\Server\Auth
  */
 class CramMd5Method implements MethodInterface
 {

@@ -1,10 +1,10 @@
 <?php
 
-namespace SamIT\React\Smtp\Auth;
+namespace Smalot\Smtp\Server\Auth;
 
 /**
  * Class LoginMethod
- * @package SamIT\React\Smtp\Auth
+ * @package Smalot\Smtp\Server\Auth
  */
 class LoginMethod implements MethodInterface
 {
