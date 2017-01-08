@@ -90,11 +90,10 @@ class CramMd5Method implements MethodInterface
     }
 
     /**
-     * @param string $username
      * @param string $password
      * @return bool
      */
-    public function validateIdentity($username, $password)
+    public function validateIdentity($password)
     {
         $hashMd5 = $this->_hmacMd5($password, $this->challenge);
 

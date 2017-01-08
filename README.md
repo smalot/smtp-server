@@ -18,6 +18,39 @@ It is advised to install additionnal PHP libraries:
 * [events](https://pecl.php.net/package/event)
 * [mailparse](https://pecl.php.net/package/mailparse)
 
+## Security
+
+By default, `username` and `password` are not checked. However, you can override the `Server` class to implement your own logic.
+
+````php
+class MyServer extends \SamIT\React\Smtp\Server
+{
+    /**
+     * @param Connection $connection
+     * @param MethodInterface $method
+     * @return bool
+     */
+    public function checkAuth(Connection $connection, MethodInterface $method)
+    {
+        $username = $method->getUsername();
+        $password = $this->getPasswordForUsername();
+    
+        return $method->validateIdentity($password);
+    }
+    
+    /**
+     * @param string $username
+     * @return string
+     */
+    protected function getPasswordForUsername($username)
+    {
+        // @Todo: Load password from Database or somewhere else.
+        $password = '';
+    
+        return $password;
+    }
+}
+````
 
 ## Sample code
 

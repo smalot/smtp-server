@@ -72,11 +72,10 @@ class LoginMethod implements MethodInterface
     }
 
     /**
-     * @param string $username
      * @param string $password
      * @return bool
      */
-    public function validateIdentity($username, $password)
+    public function validateIdentity($password)
     {
         return $password == $this->password;
     }
