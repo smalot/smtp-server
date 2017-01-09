@@ -224,10 +224,10 @@ class Connection extends Stream implements ConnectionInterface
         $limit = $this->state == self::STATUS_DATA ? 1000 : 512;
         if ('' !== $data && false !== $data) {
             $this->lineBuffer .= $data;
-            if (strlen($this->lineBuffer) > $limit) {
-                $this->sendReply(500, 'Line length limit exceeded.');
-                $this->lineBuffer = '';
-            }
+//            if (strlen($data) > $limit) {
+//                $this->sendReply(500, 'Line length limit exceeded.'.strlen($this->lineBuffer));
+//                $this->lineBuffer = '';
+//            }
 
             $delimiter = self::DELIMITER;
             while (false !== $pos = strpos($this->lineBuffer, $delimiter)) {
