@@ -40,6 +40,7 @@ class LogSubscriber implements EventSubscriberInterface
           Events::CONNECTION_RCPT_RECEIVED => 'onConnectionRcptReceived',
           Events::CONNECTION_LINE_RECEIVED => 'onConnectionLineReceived',
           Events::MESSAGE_RECEIVED => 'onMessageReceived',
+          Events::MESSAGE_SENT => 'onMessageSent',
         ];
     }
 
@@ -110,6 +111,14 @@ class LogSubscriber implements EventSubscriberInterface
      */
     public function onMessageReceived(MessageReceivedEvent $event)
     {
-        $this->logger->info('Message received: '.strlen($event->getMessage()).' bytes length');
+        $this->logger->info('Message received via smtp: '.strlen($event->getMessage()).' bytes');
+    }
+
+    /**
+     * @param MessageSentEvent $event
+     */
+    public function onMessageSent(MessageSentEvent $event)
+    {
+        $this->logger->info('Message sent via sendmail: '.strlen($event->getMessage()).' bytes');
     }
 }

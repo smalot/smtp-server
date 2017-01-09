@@ -22,5 +22,7 @@ final class Events
 
     const CONNECTION_AUTH_REFUSED = 'smtp_server.connection.auth_refused';
 
+    const MESSAGE_SENT = 'smtp_server.message.sent';
+
     const MESSAGE_RECEIVED = 'smtp_server.message.received';
 }
